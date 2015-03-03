@@ -61,6 +61,7 @@ void cd(const char *dir){
   }  
 }
 
+
 void ls(){ //will eventually need this to potentially return a char*
   
     char* cwd;
@@ -81,8 +82,16 @@ void ls(){ //will eventually need this to potentially return a char*
 
     closedir(dir);
   }
+}  
   
-  
+
+void jobs(){
+    for (int i = 0; i < BSIZE; i++){
+      if (jobs[i].alive){
+	printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
+      }
+    } 
+
 }
 
 //will run command in background
