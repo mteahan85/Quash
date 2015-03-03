@@ -7,6 +7,7 @@
 #include <dirent.h> 
 #include <sys/types.h>
 #include <dirent.h>
+#include <errno.h>
 
 
 #define BSIZE 256
@@ -48,7 +49,7 @@ int main(int argc, char **argv, char **envp)
 }
 
 //Change Directories (cd)
-void cd(const char *dir){
+void cd(const char *dir){ //--does this account for PATH and HOME if typed in?
   
   if(dir == NULL){ //nothing is passed in -- understood "HOME"
     if(chdir(getenv("HOME")) == -1){ //checks for HOME directory
@@ -80,7 +81,22 @@ void ls(){ //will eventually need this to potentially return a char*
     }
     closedir(dir);
   }
-}  
+} 
+
+//Sets the enviroment variables
+void set(char* pathSet){ // -- unsure if this is setting the enviroment variables for the child process? -- also may need to create special case for PATH and multiple inputs
+  
+  const char* delim = '=';
+  char* pathType; //either HOME or PATH
+  char* value; 
+  
+  pathType = strtok(pathSet, delim);
+  value = strtok(NULL, delim);
+  
+  if (setenv(pathType.c_str(), value.c_str(), 1) < 0){
+    printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
+  }
+}
 
 //Displays jobs when user calls jobs function
 void jobDisplay(){
@@ -91,6 +107,9 @@ void jobDisplay(){
   } 
   
 }
+
+
+
 
 //will run command in background
 void runBackground(){
