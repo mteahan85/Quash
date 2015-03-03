@@ -10,6 +10,7 @@
 #include <errno.h>
 
 
+
 #define BSIZE 256
 
 
@@ -29,15 +30,93 @@ typedef struct{
 
 int main(int argc, char **argv, char **envp)
 {
-  Job jobs[BSIZE];
+
   
-  //will have to initalize things
+  bool gettingInput;
+  if (isatty(fileno(stdin))){
+    gettingInput = false;
+  }else{
+    gettingInput = true;
+  }
+  
+  if(!gettingInput){
+    //make pretty welcome thing here
+    printf("##############################################\n");
+    printf("#                   Quash                    #\n");
+    printf("# Written by: Nicole Maneth and Megan Teahan #\n");
+    printf("##############################################\n");
+       
+  }
+  //will have to initalize (A LOT) of things
+  //hosting data/name stuff
+  char hostname[BSIZE];
+  gethostname(hostname,BSIZE);
+  char *directory = getDirectory();
+  char *username = getenv("USER");
+  
+  //command stuff
+  char command[BSIZE];
+  size_t length = BSIZE;
+  
+  //job stuff
+  Job jobs[BSIZE];
+  for( int i=0; i<BSIZE; i++){
+    jobs[i].alive=false;
+    jobs[i].command = malloc(10);
+  }
+  int numJobs = 0;
+  
+  //pid stuff
+  pid_t returnPid;
+  int pid;
+  int status;
+  
+  //pipes stuff
   
   
   
   //have loop to run actual commands on
   while(1){
-    
+    if(!gettingInput)
+      printf("%s:%s %s$ ", hostname, director, user);
+    char *command = malloc((int)length);
+    if(getline(&command, &length, stdin)>0){//command was made
+      for(int i=0; i<BSIZE; i++){
+	
+	if(jobs[i].alive){//check on jobs
+	  returnPid = waitpid(jobs[i].pic, &status, WNOHANG);  //get pid
+	  if(returnPid<0){
+	    printf("failed");
+	    jobs[i].alive=false;
+	  }
+	  else if(return_pid == jobs[i].pid){
+	    printf("finished");
+	    jobs[i].alive = false;
+	  }
+	  else
+	    continue;
+	}
+	
+      }
+      //see what the command is
+      if((string)argv[0] =="exit" || (string)argv[0] =="quit"){
+	exit(0);
+      }
+      if((string)argv[0] =="set"){
+	set();
+      }
+      if((string)argv[0] =="cd"){
+	cd(argv[1]);
+      }
+      if((string)argv[0] =="jobs"){
+	jobs();
+      }
+      if((string)argv[0] =="ls"){
+	ls();
+      }
+      
+      
+    }
     
   }
   
@@ -62,7 +141,9 @@ void cd(const char *dir){ //--does this account for PATH and HOME if typed in?
   }  
 }
 
+
 //List items within current directory (ls)
+
 void ls(){ //will eventually need this to potentially return a char*
   
   char* cwd;
@@ -82,6 +163,7 @@ void ls(){ //will eventually need this to potentially return a char*
     closedir(dir);
   }
 } 
+
 
 //Sets the enviroment variables
 void set(char* pathSet){ // -- unsure if this is setting the enviroment variables for the child process? -- also may need to create special case for PATH and multiple inputs
@@ -105,10 +187,7 @@ void jobDisplay(){
       printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
     }
   } 
-  
 }
-
-
 
 
 //will run command in background
