@@ -1,1 +1,26 @@
 Needs for Quash Shell
+
+1. working in background:
+  int daemon_int(void)
+{
+    if (pid = fork()) < 0)
+        return (-1) ;
+    else if (pid != 0)
+       exit(0) ; /* The parent process exits */
+    setsid() ;   /* become session leader */
+    chdir("/") ; /* change the working dir */
+    umask(0) ;   /* clear out the file mode creation mask */
+    return(0) ;
+}
+
+or 
+
+tcsetpgrp() works on process groups, not individual processes. What you want to do is this:
+
+When you create a new pipeline, call setpgid() to put all the members of the pipeline in a new process group (with the PID of the first process in the pipeline as the PGID). (A pipeline is a sequence of processes started by your shell when it sees a request like ls | grep foo | wc -l - the simplest pipeline has just one process in it). Normally you would call setpgid(0, 0) from the first process in the pipeline, before calling exec().
+
+Use tcsetpgrp() to manage which process group is in the foreground. If you move a process group from the foreground to the background, you would set the shell's own process group as the foreground process group - you can get this with getpgid(0) in the shell.
+
+When the shell is in the background, it should use a blocking waitpid() call to wait for a child process to exit rather than show a prompt. Once every process in the foreground pipeline has exited, it should put itself back into the foreground again (and show a prompt).
+
+When the shell is in the foreground, it should call waitpid() with the WNOHANG and WUNTRACED flags to check on the status of child processes just before you show the prompt - this will inform you when they have stopped or exited, and let you inform the user.

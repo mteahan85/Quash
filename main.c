@@ -4,6 +4,10 @@
 #include <strings.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <dirent.h> 
+#include <sys/types.h>
+#include <dirent.h>
+
 
 #define BSIZE 256
 
@@ -55,6 +59,30 @@ void cd(const char *dir){
       printf("<%s> is not a working pathname.\n", strerror(errno));
     }
   }  
+}
+
+void ls(){ //will eventually need this to potentially return a char*
+  
+    char* cwd;
+    char buf[BSIZE];
+
+    cwd = getcwd( buf, BSIZE ); //current file directory
+  
+  
+  DIR *dir; 
+  struct dirent *dirFiles;
+  dir = opendir(cwd);
+  if (dir)
+  {
+    while ((dirFiles = readdir(dir)) != NULL)
+    {
+      printf("%s\n", dirFiles->d_name);
+    }
+
+    closedir(dir);
+  }
+  
+  
 }
 
 //will run command in background
