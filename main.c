@@ -60,7 +60,7 @@ void cd(const char *dir){
 void jobs(){
     for (int i = 0; i < BSIZE; i++){
       if (jobs[i].alive){
-	printf("[%d]\t%d\t%s\n",jobs[l].id,jobs[l].pid,jobs[l].command);
+	printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
       }
     } 
 }
