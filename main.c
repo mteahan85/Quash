@@ -8,10 +8,28 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <termios.h>
 
 
 
 #define BSIZE 256
+
+pid_t shellPID;
+pid_t shellPGID;
+struct termios shellTmodes;
+int shellTerminal;
+int shellIsInteractive;
+
+static int qargc=0;
+static char qargv[10]; //change if too small
+static char cmdBuf[BSIZE];
+static int bufChar=0;
+
+static char in;
+//hosting data/name stuff
+char hostname[BSIZE];
+char *directory;
+char *username;
 
 
 typedef struct{
@@ -30,102 +48,130 @@ typedef struct{
 
 int main(int argc, char **argv, char **envp)
 {
-
+  //let's just designate things to individual files, so they look contained and pretty
   
-  bool gettingInput;
-  if (isatty(fileno(stdin))){
-    gettingInput = false;
-  }else{
-    gettingInput = true;
-  }
+  printf("##############################################\n");
+  printf("#                   Quash                    #\n");
+  printf("# Written by: Nicole Maneth and Megan Teahan #\n");
+  printf("##############################################\n");
   
-  if(!gettingInput){
-    //make pretty welcome thing here
-    printf("##############################################\n");
-    printf("#                   Quash                    #\n");
-    printf("# Written by: Nicole Maneth and Megan Teahan #\n");
-    printf("##############################################\n");
-       
-  }
-  //will have to initalize (A LOT) of things
-  //hosting data/name stuff
-  char hostname[BSIZE];
-  gethostname(hostname,BSIZE);
-  char *directory = getDirectory();
-  char *username = getenv("USER");
+  //initialize shell
+  initializeShell();
   
-  //command stuff
-  char command[BSIZE];
-  size_t length = BSIZE;
-  
-  //job stuff
-  Job jobs[BSIZE];
-  for( int i=0; i<BSIZE; i++){
-    jobs[i].alive=false;
-    jobs[i].command = malloc(10);
-  }
-  int numJobs = 0;
-  
-  //pid stuff
-  pid_t returnPid;
-  int pid;
-  int status;
-  
-  //pipes stuff
-  
-  
-  
-  //have loop to run actual commands on
   while(1){
-    if(!gettingInput)
-      printf("%s:%s %s$ ", hostname, director, user);
-    char *command = malloc((int)length);
-    if(getline(&command, &length, stdin)>0){//command was made
-      for(int i=0; i<BSIZE; i++){
-	
-	if(jobs[i].alive){//check on jobs
-	  returnPid = waitpid(jobs[i].pic, &status, WNOHANG);  //get pid
-	  if(returnPid<0){
-	    printf("failed");
-	    jobs[i].alive=false;
-	  }
-	  else if(return_pid == jobs[i].pid){
-	    printf("finished");
-	    jobs[i].alive = false;
-	  }
-	  else
-	    continue;
-	}
-	
-      }
-      //see what the command is
-      if((string)argv[0] =="exit" || (string)argv[0] =="quit"){
-	exit(0);
-      }
-      if((string)argv[0] =="set"){
-	set();
-      }
-      if((string)argv[0] =="cd"){
-	cd(argv[1]);
-      }
-      if((string)argv[0] =="jobs"){
-	jobs();
-      }
-      if((string)argv[0] =="ls"){
-	ls();
-      }
-      
-      
+   in = getchar();
+   if(in=='\n'){	//no input    
+    begLineDisplay();
+   }
+   else{	//they typed something; deal with it
+     readCommand();
+     performCommand();
+     begLineDisplay();
+   }
+  } 
+   
+}
+
+void begLineDisplay(){
+  printf("%s:%s %s$ ", hostname, directory, username);
+}
+
+void initializeShell(){
+  shellPID = getpid();
+  shellTerminal = STDIN_FILENO;
+  shellIsInteractive = isatty(shellTerminal);
+
+  if (shellIsInteractive) {
+    //loop until shell is in the foreground
+    while (tcgetpgrp(shellTerminal) != (shellPGID = getpgrp())){
+	    kill(-shellPGID, SIGTTIN);
+    }
+    // Ignore interactive and job-control signals.  
+    signal (SIGINT, SIG_IGN);
+    signal (SIGQUIT, SIG_IGN);
+    signal (SIGTSTP, SIG_IGN);
+    signal (SIGTTIN, SIG_IGN);
+    signal (SIGTTOU, SIG_IGN);
+    signal (SIGCHLD, SIG_IGN);
+
+    //put shell in own process group
+    shellPGID = getpgrp();
+    if (setpgid(shellPID, shellPID)<0) {
+      printf("Error, the shell is not process group leader");
+      exit(1);
     }
     
+    //grab control of the terminal
+    tcsetpgrp(shellTerminal, shellPGID);
+    //save default terminal attributes for the shell
+    tcgetattr(shellTerminal, &shellTmodes); 
+    
+    //save directory
+    directory = (char*) malloc(sizeof(char)*1024);
+  }
+  else{
+    printf("Failed to make shell interactive; quitting now \n");
+    exit(1);
+  }
+  begLineDisplay();
+  fflush(stdout);
+}
+
+void readCommand(){ //parses input
+  //initialize
+  while(qargc!=0){
+    qargv[qargc] = NULL;
+    qargc--;
+  }
+  bufChar = 0;
+  
+  //store input in cmdBuf array
+  char *bufPtr;
+  while(in != '\n'){
+    cmdBuf[bufChar]= in;
+    bufChar++;
+    in= getchar();
   }
   
-  return 0; 
-  
-  
-  
+  //put mark at end of input
+  cmdBuf[bufChar] = 0x00;
+  //break it up by spaces
+  bufPtr = strtok(cmdBuf, " "); //get first token
+  while(bufPtr !=NULL){	//walk token through other tokens
+   qargv[qargc] = bufPtr;
+   bufPtr = strtok(NULL, " ");
+   qargc++;
+  }
   
 }
+
+void performCommand(){
+  if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
+   exit(0); 
+  }
+  if(strcmp("cd", qargv[0])==0){
+   cd(); 
+  }
+  if(strcmp("ls", qargv[0])==0){
+   ls();
+  }
+  if(strcmp("jobs", qargv[0])==0){
+   jobDisplay();    
+  }
+  if(strcmp("set", qargv[0])==0){
+   set(); 
+  }
+  
+  doJob(qargv, "STANDARD");
+  
+}
+
+void doJob(char *command[], char *file){
+  
+}
+
+
+
 
 //Change Directories (cd)
 void cd(const char *dir){ //--does this account for PATH and HOME if typed in?
