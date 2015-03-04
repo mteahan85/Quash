@@ -190,8 +190,27 @@ void jobDisplay(){
 }
 
 
-//will run command in background
-void runBackground(){
-  
-  
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
