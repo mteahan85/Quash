@@ -11,7 +11,6 @@
 #include <termios.h>
 
 
-
 #define BSIZE 256
 
 pid_t shellPID;
@@ -40,10 +39,6 @@ typedef struct{
   char * command;
   
 } Job;
-
-
-
-
 
 
 int main(int argc, char **argv, char **envp)
@@ -147,6 +142,7 @@ void readCommand(){ //parses input
 
 void performCommand(){
   if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
+    //and kill everything
    exit(0); 
   }
   if(strcmp("cd", qargv[0])==0){
@@ -161,13 +157,45 @@ void performCommand(){
   if(strcmp("set", qargv[0])==0){
    set(); 
   }
+  // check for ./ for execute function
   
   doJob(qargv, "STANDARD");
   
 }
 
+//process special commands
 void doJob(char *command[], char *file){
+  char* fname = NULL;
+  pid_t pid;
+  //foreground/background stuff
+  char mode = symbolCheck("&");
+  pid = fork();
   
+  
+}
+
+char symbolCheck(char* symbol){
+ int i=0;
+  for(;qargv[i] != NULL; qargv[i]){
+   if(symbol){
+    if(strcmp(symbol, qargv[i])==0){	//background
+     return 'b'; 
+    }
+   }
+   else{
+    if(strcmp("<", qargv[i])==0){ //read
+     return 'r';
+    }
+    else if(strcmp(">", qargv[i])==0){//write
+     return 'w'; 
+    }
+    else if(strcmp("|", qargv[i])==0){//pipe
+      return 'p';
+    }
+   }
+  }
+  //no good
+  return 0;
 }
 
 
