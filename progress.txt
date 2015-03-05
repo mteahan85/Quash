@@ -17,3 +17,5 @@
       the format: killSIGNUMJOBID, where SIGNUM is an integer specifying the
       signal number, and JOBID is an integer that specifies the job that should
       receive the signal. (5)
+
+      https://github.com/kvprathap/quash/blob/master/quash.c

@@ -11,7 +11,6 @@
 #include <termios.h>
 
 
-
 #define BSIZE 256
 
 pid_t shellPID;
@@ -41,11 +40,15 @@ typedef struct Job{
   char* fileName; //this will depend if it is an executable
   char** arguments; //an array of arguments that go with that command
   
+<<<<<<< HEAD
 };
 
 static struct Job jobs[100]; //should it be Job job[];
 static int *jobCount;
 
+=======
+} Job;
+>>>>>>> a5c7e081df095ba421c4930bc146bf5db63c9120
 
 
 int main(int argc, char **argv, char **envp)
@@ -170,7 +173,12 @@ void performCommand(){
   //a paricular ground before running the command?
   */
   if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
+<<<<<<< HEAD
     exit(0); 
+=======
+    //and kill everything
+   exit(0); 
+>>>>>>> a5c7e081df095ba421c4930bc146bf5db63c9120
   }
   if(strcmp("cd", qargv[0])==0){
     cd(); 
@@ -193,13 +201,45 @@ void performCommand(){
   }if(strchr('&', qargv[0]) == 0){ //may look like (job->background == true)
     //throw to background
   }
+  // check for ./ for execute function
   
   doJob(qargv, "STANDARD");
   
 }
 
+//process special commands
 void doJob(char *command[], char *file){
+  char* fname = NULL;
+  pid_t pid;
+  //foreground/background stuff
+  char mode = symbolCheck("&");
+  pid = fork();
   
+  
+}
+
+char symbolCheck(char* symbol){
+ int i=0;
+  for(;qargv[i] != NULL; qargv[i]){
+   if(symbol){
+    if(strcmp(symbol, qargv[i])==0){	//background
+     return 'b'; 
+    }
+   }
+   else{
+    if(strcmp("<", qargv[i])==0){ //read
+     return 'r';
+    }
+    else if(strcmp(">", qargv[i])==0){//write
+     return 'w'; 
+    }
+    else if(strcmp("|", qargv[i])==0){//pipe
+      return 'p';
+    }
+   }
+  }
+  //no good
+  return 0;
 }
 
 
