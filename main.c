@@ -40,15 +40,12 @@ typedef struct Job{
   char* fileName; //this will depend if it is an executable
   char** arguments; //an array of arguments that go with that command
   
-<<<<<<< HEAD
+
 };
 
 static struct Job jobs[100]; //should it be Job job[];
 static int *jobCount;
 
-=======
-} Job;
->>>>>>> a5c7e081df095ba421c4930bc146bf5db63c9120
 
 
 int main(int argc, char **argv, char **envp)
@@ -173,12 +170,10 @@ void performCommand(){
   //a paricular ground before running the command?
   */
   if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
-<<<<<<< HEAD
-    exit(0); 
-=======
+
     //and kill everything
    exit(0); 
->>>>>>> a5c7e081df095ba421c4930bc146bf5db63c9120
+
   }
   if(strcmp("cd", qargv[0])==0){
     cd(); 
