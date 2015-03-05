@@ -32,17 +32,19 @@ char *directory;
 char *username;
 
 
-typedef struct{
-  bool background; 
-  bool alive;
+typedef struct Job{
+  bool background; //if the job is running in the back ground
+  bool alive; //if the job is alive or not
   int id;
   pid_t pid;
-  char * command;
+  char * command; //an actual command cd, ls, set, etc...
+  char* fileName; //this will depend if it is an executable
+  char** arguments; //an array of arguments that go with that command
   
-} Job;
+};
 
-
-
+static struct Job jobs[100]; //should it be Job job[];
+static int *jobCount;
 
 
 
@@ -59,17 +61,17 @@ int main(int argc, char **argv, char **envp)
   initializeShell();
   
   while(1){
-   in = getchar();
-   if(in=='\n'){	//no input    
-    begLineDisplay();
-   }
-   else{	//they typed something; deal with it
-     readCommand();
-     performCommand();
-     begLineDisplay();
-   }
+    in = getchar();
+    if(in=='\n'){	//no input    
+      begLineDisplay();
+    }
+    else{	//they typed something; deal with it
+      readCommand();
+      performCommand();
+      begLineDisplay();
+    }
   } 
-   
+  
 }
 
 void begLineDisplay(){
@@ -80,11 +82,11 @@ void initializeShell(){
   shellPID = getpid();
   shellTerminal = STDIN_FILENO;
   shellIsInteractive = isatty(shellTerminal);
-
+  
   if (shellIsInteractive) {
     //loop until shell is in the foreground
     while (tcgetpgrp(shellTerminal) != (shellPGID = getpgrp())){
-	    kill(-shellPGID, SIGTTIN);
+      kill(-shellPGID, SIGTTIN);
     }
     // Ignore interactive and job-control signals.  
     signal (SIGINT, SIG_IGN);
@@ -93,7 +95,7 @@ void initializeShell(){
     signal (SIGTTIN, SIG_IGN);
     signal (SIGTTOU, SIG_IGN);
     signal (SIGCHLD, SIG_IGN);
-
+    
     //put shell in own process group
     shellPGID = getpgrp();
     if (setpgid(shellPID, shellPID)<0) {
@@ -138,28 +140,32 @@ void readCommand(){ //parses input
   //break it up by spaces
   bufPtr = strtok(cmdBuf, " "); //get first token
   while(bufPtr !=NULL){	//walk token through other tokens
-   qargv[qargc] = bufPtr;
-   bufPtr = strtok(NULL, " ");
-   qargc++;
+    qargv[qargc] = bufPtr;
+    bufPtr = strtok(NULL, " ");
+    qargc++;
   }
   
 }
 
 void performCommand(){
   if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
-   exit(0); 
+    exit(0); 
   }
   if(strcmp("cd", qargv[0])==0){
-   cd(); 
+    cd(); 
   }
   if(strcmp("ls", qargv[0])==0){
-   ls();
+    ls();
   }
   if(strcmp("jobs", qargv[0])==0){
-   jobDisplay();    
+    jobDisplay();    
   }
   if(strcmp("set", qargv[0])==0){
-   set(); 
+    set(); 
+  }if(strchr('|', qargv[0]) == 0){
+    //commandPipe();
+  }if(strchr('&', qargv[0]) == 0){
+    //throw to background
   }
   
   doJob(qargv, "STANDARD");
@@ -236,7 +242,38 @@ void jobDisplay(){
 }
 
 
-
+//Pipes -- used if there are two jobs you want to process
+//these two jobs are separated by '|'
+void pipeCommands(Job *job1, Job *job2){
+  
+  int status;
+  pid_t pid_1;
+  int fd1[2];
+  
+  pipe(fd1);
+  
+  
+  pid_1 = fork();
+  if (pid_1 == 0) {
+    dup2(fd1[1],STDOUT_FILENO);
+    close(fd1[0]);
+    if(execvp(job1->fileName, job1->arguments) == -1){
+      //error
+    }
+    
+    exit(0);
+  }
+  else {
+    dup2(fd1[0], STDIN_FILENO);
+    close(fd1[1]);
+    waitpid(pid_1, &status, 0);
+    if(execvp(job2->fileName, job2->arguments) == -1){
+      //error
+    }
+    exit(0);
+  }
+  
+}
 
 
 
