@@ -119,6 +119,11 @@ void initializeShell(){
   fflush(stdout);
 }
 
+
+//will also need to perform a special case of parsing for '|', '<', '>' case
+//and for '&'
+//should probably be storing this information in
+//a struct job and then adding this job to the global struct Job jobs[]
 void readCommand(){ //parses input
   //initialize
   while(qargc!=0){
@@ -147,7 +152,23 @@ void readCommand(){ //parses input
   
 }
 
+
+//may want this to take in a job,
+//and then read use the information from this job to run
+//maybe method looks like this: performCommand(Job *job);
 void performCommand(){
+  
+  //putting a job in the foreground/background should be called here 
+  //and the '|', '<', etc... should be accounted for earlier in this program
+  
+  /*if(job->background == false){
+	//run in foreground
+    }else{
+	//run in background
+    }
+  // Question: do you run the command first or do you put the job in 
+  //a paricular ground before running the command?
+  */
   if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
     exit(0); 
   }
@@ -162,9 +183,14 @@ void performCommand(){
   }
   if(strcmp("set", qargv[0])==0){
     set(); 
-  }if(strchr('|', qargv[0]) == 0){
+  }
+  
+  //this portion needs to be moved to an earlier call
+  //may have the '|' checked for in another area because of the fact
+  //that it must keep track of 2 jobs
+  if(strchr('|', qargv[0]) == 0){
     //commandPipe();
-  }if(strchr('&', qargv[0]) == 0){
+  }if(strchr('&', qargv[0]) == 0){ //may look like (job->background == true)
     //throw to background
   }
   
@@ -180,7 +206,8 @@ void doJob(char *command[], char *file){
 
 
 //Change Directories (cd)
-void cd(const char *dir){ //--does this account for PATH and HOME if typed in?
+void cd(const char *dir){ //--does this account for PATH and HOME if typed in? 
+  //Yes -- should account for those and '..'
   
   if(dir == NULL){ //nothing is passed in -- understood "HOME"
     if(chdir(getenv("HOME")) == -1){ //checks for HOME directory
@@ -257,6 +284,13 @@ void pipeCommands(Job *job1, Job *job2){
   if (pid_1 == 0) {
     dup2(fd1[1],STDOUT_FILENO);
     close(fd1[0]);
+    
+    //would want to execute the job, but rather see what
+    //type of command it is then run what it is
+    //rather than going straight to an executable
+    
+    //I believe I should be calling the performCommand method
+    //and passing in the job given
     if(execvp(job1->fileName, job1->arguments) == -1){
       //error
     }
@@ -267,6 +301,8 @@ void pipeCommands(Job *job1, Job *job2){
     dup2(fd1[0], STDIN_FILENO);
     close(fd1[1]);
     waitpid(pid_1, &status, 0);
+    
+    //same idea as stated in the comments above for this job
     if(execvp(job2->fileName, job2->arguments) == -1){
       //error
     }
