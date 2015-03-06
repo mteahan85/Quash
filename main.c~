@@ -364,30 +364,24 @@ int main(int argc, char **argv, char **envp)
   
   //initialize shell
   initializeShell();
-
-  int flag= true;
-  while(flag){
-    char* prompt = getcwd(NULL, 1024);
-
   
   while(1){
 	char* prompt[128];
-	snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
-
+	snprintf(prompt,  sizeof(prompt), "<Quash %s > ", getcwd(NULL,1024));
     
     char* in = readline(prompt);
     printf("%s\n", in);
     add_history(in);
     char* cleanIn = trimWhitespace(in);
-    if(strlen(cleanIn)>1){	//no input    
-      readCommand(cleanIn);
+    if(cleanIn=='\n'){	//no input    
+      //     begLineDisplay();
+      exit(0);
     }
     else{	//they typed something; deal with it
-      flag=false;
+      readCommand(cleanIn);
       //
       //     begLineDisplay();
     }
-    free(in);
   } 
   
 }
