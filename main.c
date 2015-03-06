@@ -470,7 +470,7 @@ void readCommand(char* in){ //parses input
   }
   else if(isJobs!=NULL){
     //display jobs
-    displayJobs(); 
+    //displayJobs(); 
   }
   else if(isSet!=NULL){
     // set(qargv[0]);
