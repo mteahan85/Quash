@@ -287,9 +287,9 @@ void set(char* pathSet){ // -- unsure if this is setting the enviroment variable
   char* value; 
   
   pathType = strtok(pathSet, delim);
-  value = strtok(NULL, delim);
+  value = strtok(NULL, "\0");
   
-  if (setenv(pathType.c_str(), value.c_str(), 1) < 0){
+  if (setenv(pathType, value, 1) < 0){
     printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
   }
 }
@@ -306,7 +306,7 @@ void jobDisplay(){
 
 //Pipes -- used if there are two jobs you want to process
 //these two jobs are separated by '|'
-void pipeCommands(Job *job1, Job *job2){
+void pipeCommands(char* job1, char* job2){
   
   int status;
   pid_t pid_1;
@@ -314,12 +314,12 @@ void pipeCommands(Job *job1, Job *job2){
   
   pipe(fd1);
   
-  
   pid_1 = fork();
+  //pid_1 = fork();
   if (pid_1 == 0) {
     dup2(fd1[1],STDOUT_FILENO);
     close(fd1[0]);
-    
+    readCommand(trimWhitespace(job1));
     //would want to execute the job, but rather see what
     //type of command it is then run what it is
     //rather than going straight to an executable
@@ -336,7 +336,7 @@ void pipeCommands(Job *job1, Job *job2){
     dup2(fd1[0], STDIN_FILENO);
     close(fd1[1]);
     waitpid(pid_1, &status, 0);
-    
+    readCommand(trimWhitespace(job2));
     //same idea as stated in the comments above for this job
     if(execvp(job2->fileName, job2->arguments) == -1){
       //error
