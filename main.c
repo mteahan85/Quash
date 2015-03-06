@@ -12,6 +12,8 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #define __USE_C99_MATH
 
@@ -23,8 +25,7 @@ struct termios shellTmodes;
 int shellTerminal;
 int shellIsInteractive;
 
-static int qargc=0;
-static char qargv[10]; //change if too small
+
 static char cmdBuf[BSIZE];
 static int bufChar=0;
 
@@ -75,7 +76,7 @@ char* trimWhitespace(char *str){
 void begLineDisplay(){
   printf("%s:%s %s$ ", hostname, directory, username);
 }
-/*
+
 void initializeShell(){
   shellPID = getpid();
   shellTerminal = STDIN_FILENO;
@@ -107,15 +108,15 @@ void initializeShell(){
     tcgetattr(shellTerminal, &shellTmodes); 
     
     //save directory
-    directory = (char*) malloc(sizeof(char)*1024);
+    directory = getcwd(NULL, 1024);
   }
   else{
     printf("Failed to make shell interactive; quitting now \n");
     exit(1);
   }
-  begLineDisplay();
+  //begLineDisplay();
   fflush(stdout);
-}*/
+}
 
 
 //will also need to perform a special case of parsing for '|', '<', '>' case
@@ -156,7 +157,8 @@ void cd(const char *dir){ //--does this account for PATH and HOME if typed in?
     if(chdir(dir) == -1){ //checks for directory given
       printf("<%s> is not a working pathname.\n", strerror(errno));
     }
-  }  
+  }
+  
 }
 
 
@@ -207,23 +209,27 @@ void displayJobs(){
     }
   } 
 }
+
+
+
+
 void readCommand(char* input){ //parses input
   
-  char* inputCopy;
-  strcopy(inputCopy, input);
+  char* inputCopy = strdup(input);
   char* command;
-  
-  //initialize
-  while(qargc!=0){
-    qargv[qargc] = NULL;
-    qargc--;
+  int qargc=0;
+  char** qargv[20]; //change if too small
+  for(int i = 0; i < 20; i++){
+    qargv[i]=NULL; 
   }
   
+  
   //break it up by spaces
-  command = strtok(input, " "); //get first token
-  qargv[qargc] = strtok(input, " ");
-  while(qargv[qargc] !=NULL){	//walk token through other tokens
-    qargv[qargc] = strtok(NULL, " ");
+  command = strtok(input," "); 
+  char* arg1 = strtok(NULL," ");
+  while(arg1 != NULL){
+    qargv[qargc]=arg1;
+    arg1=strtok(NULL," ");
     qargc++;
   }
   
@@ -233,47 +239,46 @@ void readCommand(char* input){ //parses input
   char* isRead = strchr(inputCopy, '<');
   char* isWrite = strchr(inputCopy, '>');
   char* isCd = strstr(command, "cd");
+  char* isLs = strstr(command, "ls");
   char* isExit = strstr(command, "exit");
   char* isQuit = strstr(command, "quit");
   char* isJobs = strstr(command, "jobs");
   char* isSet = strstr(command, "set");
   
-  if(isPipe!=NULL){
-    char* command1 = strtok(inputCopy, "|");
-    char* command2 = strtok(inputCopy, "\n");
-    //pipeCommands(command1, command2);   
-    
-    int status;
-    pid_t pid_1;
-    int fd1[2];
-    
-    pipe(fd1);
-    
-    pid_1 = fork();
-    if (pid_1 == 0) {
-      dup2(fd1[1],STDOUT_FILENO);
-      close(fd1[0]);
-      readCommand(trimWhitespace(command1));
-      //would want to execute the job, but rather see what
-      //type of command it is then run what it is
-      //rather than going straight to an executable
-      
-      //I believe I should be calling the performCommand method
-      //and passing in the job given
-      
-      
-      exit(0);
+   if(isCd !=NULL){
+      //cd
+      cd(qargv[0]);
     }
-    else {
-      dup2(fd1[0], STDIN_FILENO);
-      close(fd1[1]);
-      waitpid(pid_1, &status, 0);
-      readCommand(trimWhitespace(command2));
-      exit(0);
+  
+    else if(isPipe!=NULL){
+      char* part = strtok(inputCopy, "|");
+      char* first_cmd = part;
+      printf("%s first", first_cmd);
+      part = strtok(NULL, "\n");
+      char* second_cmd = part;
+      printf("%s second", second_cmd);
+      int spipe[2];
+      int status;
+      pipe(spipe);
+      pid_t pid;
+      pid = fork();
+      if (pid == 0) {
+	dup2(spipe[1], STDOUT_FILENO);
+	close(spipe[0]);
+	close(spipe[1]);
+	readCommand(trimWhitespace(first_cmd));
+	exit(0);
+      } else {
+	dup2(spipe[0], STDIN_FILENO);
+	close(spipe[0]);
+	close(spipe[1]);
+	waitpid(pid, &status, 0);
+	readCommand(trimWhitespace(second_cmd));
+	
+      }
     }
-  }
-  else{
-    if(isBackground!=NULL){
+  
+    else if(isBackground!=NULL){
       //run in background 
       //take qargv[0] as the command
     }
@@ -283,8 +288,10 @@ void readCommand(char* input){ //parses input
     else if(isWrite!=NULL){
       //write 
     }
-    else if(isCd !=NULL){
-      //cd
+
+    else if(isLs !=NULL){
+      //ls
+      ls();
     }
     else if((isExit!=NULL)||(isQuit!=NULL)){
       //quit
@@ -295,11 +302,14 @@ void readCommand(char* input){ //parses input
       displayJobs(); 
     }
     else if(isSet!=NULL){
-      //do set thing
-      
+      // set(qargv[0]);
+      set(qargv[0]);
+    }
+    else{
+      printf("run executable"); 
     }
     
-  }
+  
 }
 int main(int argc, char **argv, char **envp)
 {
@@ -311,14 +321,18 @@ int main(int argc, char **argv, char **envp)
   printf("##############################################\n");
   
   //initialize shell
-  //initializeShell();
+  initializeShell();
   
   while(1){
-    char* in = readLine("Quash$");
+    char* prompt = getcwd(NULL, 1024);
+    
+    char* in = readline(prompt);
+    printf("%s\n", in);
     add_history(in);
     char* cleanIn = trimWhitespace(in);
     if(cleanIn=='\n'){	//no input    
       //     begLineDisplay();
+      exit(0);
     }
     else{	//they typed something; deal with it
       readCommand(cleanIn);
