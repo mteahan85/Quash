@@ -9,7 +9,16 @@
 #include <dirent.h>
 #include <errno.h>
 #include <termios.h>
+#include <stdbool.h>
+#include <ctype.h>
+#include <string.h>
+#include <string.h>
 
+
+#include <readline/readline.h>
+#include <readline/history.h>
+
+#define __USE_C99_MATH
 
 #define BSIZE 256
 
@@ -20,11 +29,10 @@ int shellTerminal;
 int shellIsInteractive;
 
 static int qargc=0;
-static char qargv[10]; //change if too small
+static char* qargv[10]; //change if too small
 static char cmdBuf[BSIZE];
 static int bufChar=0;
 
-static char in;
 //hosting data/name stuff
 char hostname[BSIZE];
 char *directory;
@@ -32,52 +40,47 @@ char *username;
 
 
 typedef struct Job{
-  bool background; //if the job is running in the back ground
-  bool alive; //if the job is alive or not
+  int background; //if the job is running in the back ground
+  int alive; //if the job is alive or not
   int id;
   pid_t pid;
   char * command; //an actual command cd, ls, set, etc...
   char* fileName; //this will depend if it is an executable
   char** arguments; //an array of arguments that go with that command
   
-
+  
 };
 
 static struct Job jobs[100]; //should it be Job job[];
 static int *jobCount;
 
 
-
-int main(int argc, char **argv, char **envp)
-{
-  //let's just designate things to individual files, so they look contained and pretty
+char* trimWhitespace(char *str){
+  char* end;
   
-  printf("##############################################\n");
-  printf("#                   Quash                    #\n");
-  printf("# Written by: Nicole Maneth and Megan Teahan #\n");
-  printf("##############################################\n");
+  // Trim leading space
+  while(isspace(*str)) str++;
   
-  //initialize shell
-  initializeShell();
+  if(*str == 0)  // All spaces?
+    return str;
   
-  while(1){
-    in = getchar();
-    if(in=='\n'){	//no input    
-      begLineDisplay();
-    }
-    else{	//they typed something; deal with it
-      readCommand();
-      performCommand();
-      begLineDisplay();
-    }
-  } 
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace(*end)) end--;
   
+  // Write new null terminator
+  *(end+1) = 0;
+  
+  return str;
 }
+
+
+
 
 void begLineDisplay(){
   printf("%s:%s %s$ ", hostname, directory, username);
 }
-
+/*
 void initializeShell(){
   shellPID = getpid();
   shellTerminal = STDIN_FILENO;
@@ -117,125 +120,31 @@ void initializeShell(){
   }
   begLineDisplay();
   fflush(stdout);
-}
+}*/
 
 
 //will also need to perform a special case of parsing for '|', '<', '>' case
 //and for '&'
 //should probably be storing this information in
 //a struct job and then adding this job to the global struct Job jobs[]
-void readCommand(){ //parses input
-  //initialize
-  while(qargc!=0){
-    qargv[qargc] = NULL;
-    qargc--;
-  }
-  bufChar = 0;
-  
-  //store input in cmdBuf array
-  char *bufPtr;
-  while(in != '\n'){
-    cmdBuf[bufChar]= in;
-    bufChar++;
-    in= getchar();
-  }
-  
-  //put mark at end of input
-  cmdBuf[bufChar] = 0x00;
-  //break it up by spaces
-  bufPtr = strtok(cmdBuf, " "); //get first token
-  while(bufPtr !=NULL){	//walk token through other tokens
-    qargv[qargc] = bufPtr;
-    bufPtr = strtok(NULL, " ");
-    qargc++;
-  }
-  
-}
+
 
 
 //may want this to take in a job,
 //and then read use the information from this job to run
 //maybe method looks like this: performCommand(Job *job);
-void performCommand(){
-  
-  //putting a job in the foreground/background should be called here 
-  //and the '|', '<', etc... should be accounted for earlier in this program
-  
-  /*if(job->background == false){
-	//run in foreground
-    }else{
-	//run in background
-    }
-  // Question: do you run the command first or do you put the job in 
-  //a paricular ground before running the command?
-  */
-  if((strcmp("exit", qargv[0])==0) || (strcmp("quit", qargv[0])==0)){
 
-    //and kill everything
-   exit(0); 
-
-  }
-  if(strcmp("cd", qargv[0])==0){
-    cd(); 
-  }
-  if(strcmp("ls", qargv[0])==0){
-    ls();
-  }
-  if(strcmp("jobs", qargv[0])==0){
-    jobDisplay();    
-  }
-  if(strcmp("set", qargv[0])==0){
-    set(); 
-  }
-  
-  //this portion needs to be moved to an earlier call
-  //may have the '|' checked for in another area because of the fact
-  //that it must keep track of 2 jobs
-  if(strchr('|', qargv[0]) == 0){
-    //commandPipe();
-  }if(strchr('&', qargv[0]) == 0){ //may look like (job->background == true)
-    //throw to background
-  }
-  // check for ./ for execute function
-  
-  doJob(qargv, "STANDARD");
-  
-}
 
 //process special commands
-void doJob(char *command[], char *file){
-  char* fname = NULL;
-  pid_t pid;
-  //foreground/background stuff
-  char mode = symbolCheck("&");
-  pid = fork();
-  
-  
-}
-
-char symbolCheck(char* symbol){
- int i=0;
-  for(;qargv[i] != NULL; qargv[i]){
-   if(symbol){
-    if(strcmp(symbol, qargv[i])==0){	//background
-     return 'b'; 
-    }
-   }
-   else{
-    if(strcmp("<", qargv[i])==0){ //read
-     return 'r';
-    }
-    else if(strcmp(">", qargv[i])==0){//write
-     return 'w'; 
-    }
-    else if(strcmp("|", qargv[i])==0){//pipe
-      return 'p';
-    }
-   }
-  }
-  //no good
-  return 0;
-}
+// void doJob(char *command[], char *file){
+//   char* fname = NULL;
+//   pid_t pid;
+//   //foreground/background stuff
+//   char mode = symbolCheck("&");
+//   pid = fork();
+//   
+//   
+// }
 
 
 
@@ -282,89 +191,186 @@ void ls(){ //will eventually need this to potentially return a char*
 //Sets the enviroment variables
 void set(char* pathSet){ // -- unsure if this is setting the enviroment variables for the child process? -- also may need to create special case for PATH and multiple inputs
   
-  const char* delim = '=';
+  
+  const char* delim = "=";
   char* pathType; //either HOME or PATH
   char* value; 
   
-  pathType = strtok(pathSet, delim);
-  value = strtok(NULL, "\0");
+
+  pathType = strtok(trimWhitespace(pathSet), delim);
+  value = strtok(NULL, '\0');
   
   if (setenv(pathType, value, 1) < 0){
     printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
   }
 }
 
-//Displays jobs when user calls jobs function
-void jobDisplay(){
-  for (int i = 0; i < BSIZE; i++){
-    if (jobs[i].alive){
-      printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
+// //Displays jobs when user calls jobs function
+// void displayJobs(){
+//   for (int i = 0; i < BSIZE; i++){
+//     if (jobs[i].alive){
+//       printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
+//     }
+//   } 
+// }
+
+
+
+
+void readCommand(char* input){ //parses input
+  
+  char* inputCopy;
+  strcopy(inputCopy, input);
+  char* command;
+
+  
+  //initialize
+  while(qargc!=0){
+    qargv[qargc] = NULL;
+    qargc--;
+  }
+  
+  //break it up by spaces
+  command = strtok(input, " "); //get first token
+  qargv[qargc] = strtok(input, " ");
+  while(qargv[qargc] !=NULL){	//walk token through other tokens
+    qargv[qargc] = strtok(NULL, " ");
+    qargc++;
+  }
+
+  //search for special characters
+  char* isBackground = strchr(inputCopy, '&');
+  char* isPipe = strchr(inputCopy, '|');
+  char* isRead = strchr(inputCopy, '<');
+  char* isWrite = strchr(inputCopy, '>');
+  char* isCd = strstr(command, "cd");
+  char* isExit = strstr(command, "exit");
+  char* isQuit = strstr(command, "quit");
+  char* isJobs = strstr(command, "jobs");
+  char* isSet = strstr(command, "set");
+  
+  if(isPipe!=NULL){
+    char* command1 = strtok(inputCopy, "|");
+    char* command2 = strtok(inputCopy, "\n");
+    //pipeCommands(command1, command2);   
+    
+    int status;
+    pid_t pid_1;
+    int fd1[2];
+    
+    pipe(fd1);
+    
+    pid_1 = fork();
+    if (pid_1 == 0) {
+      dup2(fd1[1],STDOUT_FILENO);
+      close(fd1[0]);
+      readCommand(trimWhitespace(command1));
+      //would want to execute the job, but rather see what
+      //type of command it is then run what it is
+      //rather than going straight to an executable
+      
+      //I believe I should be calling the performCommand method
+      //and passing in the job given
+      
+      
+      exit(0);
+    }
+    else {
+      dup2(fd1[0], STDIN_FILENO);
+      close(fd1[1]);
+      waitpid(pid_1, &status, 0);
+      readCommand(trimWhitespace(command2));
+      exit(0);
+    }
+  }
+
+  else{
+    if(isBackground!=NULL){
+      //run in background 
+      //take qargv[0] as the command
+    }
+    else if(isRead!=NULL){
+      //read  
+    }
+    else if(isWrite!=NULL){
+      //write 
+    }
+    else if(isCd !=NULL){
+      //cd
+    }
+    else if((isExit!=NULL)||(isQuit!=NULL)){
+      //quit
+      exit(0);
+    }
+    else if(isJobs!=NULL){
+      //display jobs
+      //displayJobs(); 
+    }
+    else if(isSet!=NULL){
+      //do set thing
+      
+    }
+    
+  }
+}
+int main(int argc, char **argv, char **envp)
+{
+  //let's just designate things to individual files, so they look contained and pretty
+  
+  printf("##############################################\n");
+  printf("#                   Quash                    #\n");
+  printf("# Written by: Nicole Maneth and Megan Teahan #\n");
+  printf("##############################################\n");
+  
+  //initialize shell
+  //initializeShell();
+  
+  while(1){
+    char* in = readLine("Quash$");
+    add_history(in);
+    char* cleanIn = trimWhitespace(in);
+    if(cleanIn=="\n"){	//no input    
+      //     begLineDisplay();
+    }
+    else{	//they typed something; deal with it
+      readCommand(cleanIn);
+      //
+      //     begLineDisplay();
     }
   } 
+  
 }
-
-
 //Pipes -- used if there are two jobs you want to process
 //these two jobs are separated by '|'
-void pipeCommands(char* job1, char* job2){
-  
-  int status;
-  pid_t pid_1;
-  int fd1[2];
-  
-  pipe(fd1);
-  
-  pid_1 = fork();
-  //pid_1 = fork();
-  if (pid_1 == 0) {
-    dup2(fd1[1],STDOUT_FILENO);
-    close(fd1[0]);
-    readCommand(trimWhitespace(job1));
-    //would want to execute the job, but rather see what
-    //type of command it is then run what it is
-    //rather than going straight to an executable
-    
-    //I believe I should be calling the performCommand method
-    //and passing in the job given
-    if(execvp(job1->fileName, job1->arguments) == -1){
-      //error
-    }
-    
-    exit(0);
-  }
-  else {
-    dup2(fd1[0], STDIN_FILENO);
-    close(fd1[1]);
-    waitpid(pid_1, &status, 0);
-    readCommand(trimWhitespace(job2));
-    //same idea as stated in the comments above for this job
-    if(execvp(job2->fileName, job2->arguments) == -1){
-      //error
-    }
-    exit(0);
-  }
-  
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// void pipeCommands(char* job1, char* job2){
+//   
+//   int status;
+//   pid_t pid_1;
+//   int fd1[2];
+//   
+//   pipe(fd1);
+//   
+//   pid_1 = fork();
+//   if (pid_1 == 0) {
+//     dup2(fd1[1],STDOUT_FILENO);
+//     close(fd1[0]);
+//     readCommand(trimWhitespace(job1));
+//     //would want to execute the job, but rather see what
+//     //type of command it is then run what it is
+//     //rather than going straight to an executable
+//     
+//     //I believe I should be calling the performCommand method
+//     //and passing in the job given
+//     
+//     
+//     exit(0);
+//   }
+//   else {
+//     dup2(fd1[0], STDIN_FILENO);
+//     close(fd1[1]);
+//     waitpid(pid_1, &status, 0);
+//     readCommand(trimWhitespace(job2));
+//     exit(0);
+//   }
+//   
+// }
