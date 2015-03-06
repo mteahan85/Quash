@@ -367,7 +367,7 @@ int main(int argc, char **argv, char **envp)
   
   while(1){
 	char* prompt[128];
-	snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
+	snprintf(prompt,  sizeof(prompt), "<Quash %s > ", getcwd(NULL,1024));
     
     char* in = readline(prompt);
     printf("%s\n", in);

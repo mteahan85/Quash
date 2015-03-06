@@ -1,0 +1,15 @@
+main.c
+README.md
+Needs for Quash Shell.txt
+main2.c
+main.o
+.git
+.kdev4
+test.txt
+..
+Quash.kdev4
+Quash
+makefile
+.
+main.c~
+progress.txt
