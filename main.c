@@ -205,12 +205,12 @@ void set(char* pathSet){ // -- unsure if this is setting the enviroment variable
   char* value; 
   
   
-   pathType = strtok(pathSet, delim);
-   value = strtok(NULL, " \n");
+  pathType = strtok(pathSet, delim);
+  value = strtok(NULL, " \n");
   
-   if (setenv(pathType, value, 1) < 0){
-     printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
-   }
+  if (setenv(pathType, value, 1) < 0){
+    printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
+  }
 }
 
 
@@ -247,7 +247,7 @@ void execute(char** input){
 
 void readCommand(char* in){ //parses input
   
-  int spipe[2];
+  
   char* inputCopy = strdup(in);
   char* inputTotal = strdup(in);
   char* command;
@@ -293,124 +293,80 @@ void readCommand(char* in){ //parses input
   
   
   if(isPipe!=NULL){
-
-    char * s; char * d;
-    int pipefd_1[2];
-    char * curInput = strdup(inputCopy);
-    int i = 0;
-    char * inString;
-    inString = strtok(inputCopy," \n=");
-    char * cur_command = strdup(inString);
-    char * background = strchr(curInput, '&');
-    char * to_pipe = strchr(curInput, '|');
-    int setter = strcmp("set", inString);
     
-    int inStringLen = background - curInput;
-    int pipeSpot = to_pipe - curInput;
-    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); // remove newline
+    //background variables
     
-    if (setter == 0) {
-      inString = strtok(NULL," \n=");
-      char * assign_value = strtok(NULL, "\n =");
-      for (s=d=assign_value;*d=*s;d+=(*s++!='\'')); // remove quotes  		
-      setenv(inString, assign_value, 1);
-    }
-    
-    if (to_pipe != NULL) {
-      if (pipe(pipefd_1) == -1) {
-	perror("pipe");
-	exit(1);	
-      }
-      //get first part (prior to pipe)
-      char * first_half = strdup(curInput);
-      char * second_half = strdup(curInput);
-      printf("%d\n", to_pipe);
-      strncpy(first_half, &curInput[0], pipeSpot);
-      first_half[pipeSpot] = '\0';
-      strncpy(second_half, &curInput[pipeSpot+2], strlen(curInput));
-      pid_t pid_1;
-      pid_t pid_2;
-      pid_1 = fork();
-      if (pid_1 == 0) {
-	dup2(pipefd_1[1], STDOUT_FILENO);
-	readCommand(trimWhitespace(first_half));
-	exit(0);
-      } 
-      
-      pid_2 = fork();
-      if (pid_2 == 0) {
-	dup2(pipefd_1[0], STDIN_FILENO);
-	readCommand(trimWhitespace(second_half));
-	exit(0);
-      } 
-      
-    } 
-    
-    
-    
-    
-    
-    
-    //       char* part = strtok(inputCopy, "|");
-    //       char* first_cmd = part;
-    //       printf("%s first", first_cmd);
-    //       part = strtok(NULL, "\n");
-    //       char* second_cmd = part;
-    //       printf("%s second", second_cmd);
-    //       int spipe[2];
-    //       int status;
-    //       pipe(spipe);
-    //       pid_t pid, pid2;
-    //       pid = fork();
-    //       if (pid == 0) {
-    // 	dup2(spipe[1], STDOUT_FILENO);
-    // 	readCommand(trimWhitespace(first_cmd));
-    // 	exit(0);
-    //       } //else {
-    //       pid2 = fork();
-    // 	if(pid2 == 0){
-    // 	dup2(spipe[0], STDIN_FILENO);
-    // //	close(spipe[0]);
-    // //	close(spipe[1]);
-    // //	waitpid(pid, &status, 0);
-    // 	readCommand(trimWhitespace(second_cmd));
-    // 	//exit(0);
-    // 	
-    //       }
-
+    int spipe[2];
     char* part = strtok(inputCopy, "|");
     char* first_cmd = part;
-    printf("%s first", first_cmd);
+   // printf("%s first", first_cmd);
     part = strtok(NULL, "\n");
     char* second_cmd = part;
-    printf("%s second", second_cmd);
+   // printf("%s second", second_cmd);
     int status;
     pipe(spipe);
     pid_t pid1, pid2;
     pid1 = fork();
     if (pid1 == 0) {
       dup2(spipe[1], STDOUT_FILENO);
-      printf("I'm running first pipe");
+      //printf("I'm running first pipe");
+      close(spipe[0]);
+   
       readCommand(trimWhitespace(first_cmd));
-      printf("I finished reading first command");
+      
+     // close(spipe[1]);
+      
+     // printf("I finished reading first command");
       exit(0);
     } 
     pid2 = fork();
     if(pid2 == 0){
       dup2(spipe[0], STDIN_FILENO);
-      printf("before wait");
-      //waitpid(pid1, &status, 0);
-      printf("after wait");
+      close(spipe[1]);
+      //printf("before wait");
+     //s waitpid(pid1, &status, 0);
+     // printf("after wait");
       readCommand(trimWhitespace(second_cmd));
+      
+      
     }
     
     close(spipe[0]);
     close(spipe[1]);
-}
+  }
   
   else if(isBackground!=NULL){
     //run in background 
     //take qargv[0] as the command
+//     pid_t pidBG, sid;
+//     pidBG = fork();
+//     if(pidBG == 0){
+//       sid = setsid();
+//       if(sid < 0){
+// 	printf("failed to create process group");
+// 	exit(0);
+//       }
+//       
+//       close(pipeBG[0]);
+//       close(pipeBG[1]);
+//       
+//       close(STDIN_FILENO);
+//       
+//       char* bgC = strtok(inputCopy,"&"); 
+//       bgC = (NULL, "\n");
+//       readCommand(bgC);
+//       kill(getpid(), -9);
+//       exit(0);
+//       
+      
+      
+//     }
+    
+    
+    
+    
+    
+    
   }
   else if(isRead!=NULL){
     //read 
@@ -478,6 +434,7 @@ void readCommand(char* in){ //parses input
   }
   else{
     execute(totalArgs);
+   
   }
   
   
@@ -495,18 +452,18 @@ int main(int argc, char **argv, char **envp)
   initializeShell();
   
   int flag= true;
+  char* in, prompt[128];
   while(flag){
-    char* prompt[128];
-    snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
-
     
-    char* in = readline(prompt);
+    snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
+    in = readline(prompt);
+    
     printf("%s\n", in);
     add_history(in);
-    char* cleanIn = trimWhitespace(in);
-    if(strlen(cleanIn)>1){	//no input    
-      readCommand(cleanIn);
-
+    in = trimWhitespace(in);
+    if(strlen(in)>1){	//no input    
+      readCommand(in);
+      
     }
     else{	//they typed something; deal with it
       flag=false;
