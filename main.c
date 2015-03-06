@@ -12,11 +12,19 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
+
+#include <string.h>
+
+
+#include <readline/readline.h>
+#include <readline/history.h>
+
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <sys/stat.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 
 #define __USE_C99_MATH
 
@@ -29,6 +37,8 @@ int shellTerminal;
 int shellIsInteractive;
 
 
+
+
 static char cmdBuf[BSIZE];
 static int bufChar=0;
 
@@ -39,8 +49,8 @@ char *username;
 
 
 typedef struct Job{
-  bool background; //if the job is running in the back ground
-  bool alive; //if the job is alive or not
+  int background; //if the job is running in the back ground
+  int alive; //if the job is alive or not
   int id;
   pid_t pid;
   char * command; //an actual command cd, ls, set, etc...
@@ -194,29 +204,52 @@ void set(char* pathSet){ // -- unsure if this is setting the enviroment variable
   char* pathType; //either HOME or PATH
   char* value; 
   
-  pathType = strtok(trimWhitespace(pathSet), delim);
-  value = strtok(NULL, '\0');
   
-  if (setenv(pathType, value, 1) < 0){
-    printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
+   pathType = strtok(pathSet, delim);
+   value = strtok(NULL, " \n");
+  
+   if (setenv(pathType, value, 1) < 0){
+     printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
+   }
+}
+
+
+// //Displays jobs when user calls jobs function
+// void displayJobs(){
+//   for (int i = 0; i < BSIZE; i++){
+//     if (jobs[i].alive){
+//       printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
+//     }
+//   } 
+// }
+void execute(char** input){
+  
+  pid_t pid_1;
+  int status;
+  pid_1 = fork();
+  if (pid_1 == 0) {
+    // IO redirection
+    
+    if(execvp(input[0], input) < 0) {
+      printf("That is an invalid command\n");
+      exit(0);
+    } 
+    
+  } else {
+    waitpid(pid_1, &status, 0);
+    if(status == 1) {
+      printf( "error");
+    }	
   }
+  
 }
-
-//Displays jobs when user calls jobs function
-void displayJobs(){
-  for (int i = 0; i < BSIZE; i++){
-    if (jobs[i].alive){
-      printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
-    }
-  } 
-}
-
-
 
 
 void readCommand(char* in){ //parses input
   
+  int spipe[2];
   char* inputCopy = strdup(in);
+  char* inputTotal = strdup(in);
   char* command;
   int qargc=0;
   char** qargv[20]; //change if too small
@@ -234,6 +267,18 @@ void readCommand(char* in){ //parses input
     qargc++;
   }
   
+  int tCount = 0;
+  char** totalArgs[20];
+  for(int i = 0; i < 20; i++){
+    totalArgs[i]=NULL; 
+  }
+  char* argsT = strtok(inputTotal," "); 
+  while(argsT != NULL){
+    totalArgs[tCount]=argsT;
+    argsT=strtok(NULL," ");
+    tCount++;
+  }
+  
   //search for special characters
   char* isBackground = strchr(inputCopy, '&');
   char* isPipe = strchr(inputCopy, '|');
@@ -248,6 +293,7 @@ void readCommand(char* in){ //parses input
   
   
   if(isPipe!=NULL){
+
     char * s; char * d;
     int pipefd_1[2];
     char * curInput = strdup(inputCopy);
@@ -331,7 +377,36 @@ void readCommand(char* in){ //parses input
     // 	//exit(0);
     // 	
     //       }
-  }
+
+    char* part = strtok(inputCopy, "|");
+    char* first_cmd = part;
+    printf("%s first", first_cmd);
+    part = strtok(NULL, "\n");
+    char* second_cmd = part;
+    printf("%s second", second_cmd);
+    int status;
+    pipe(spipe);
+    pid_t pid1, pid2;
+    pid1 = fork();
+    if (pid1 == 0) {
+      dup2(spipe[1], STDOUT_FILENO);
+      printf("I'm running first pipe");
+      readCommand(trimWhitespace(first_cmd));
+      printf("I finished reading first command");
+      exit(0);
+    } 
+    pid2 = fork();
+    if(pid2 == 0){
+      dup2(spipe[0], STDIN_FILENO);
+      printf("before wait");
+      //waitpid(pid1, &status, 0);
+      printf("after wait");
+      readCommand(trimWhitespace(second_cmd));
+    }
+    
+    close(spipe[0]);
+    close(spipe[1]);
+}
   
   else if(isBackground!=NULL){
     //run in background 
@@ -389,10 +464,6 @@ void readCommand(char* in){ //parses input
     cd(qargv[0]);
   }
   
-  else if(isLs !=NULL){
-    //ls
-    ls();
-  }
   else if((isExit!=NULL)||(isQuit!=NULL)){
     //quit
     exit(0);
@@ -406,7 +477,7 @@ void readCommand(char* in){ //parses input
     set(qargv[0]);
   }
   else{
-    printf("run executable"); 
+    execute(totalArgs);
   }
   
   
@@ -427,7 +498,7 @@ int main(int argc, char **argv, char **envp)
   while(flag){
     char* prompt[128];
     snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
-    
+
     
     char* in = readline(prompt);
     printf("%s\n", in);
@@ -435,6 +506,7 @@ int main(int argc, char **argv, char **envp)
     char* cleanIn = trimWhitespace(in);
     if(strlen(cleanIn)>1){	//no input    
       readCommand(cleanIn);
+
     }
     else{	//they typed something; deal with it
       flag=false;
