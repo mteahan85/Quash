@@ -322,23 +322,23 @@ int main(int argc, char **argv, char **envp)
   
   //initialize shell
   initializeShell();
-  
-  while(1){
+  int flag= true;
+  while(flag){
     char* prompt = getcwd(NULL, 1024);
     
     char* in = readline(prompt);
     printf("%s\n", in);
     add_history(in);
     char* cleanIn = trimWhitespace(in);
-    if(cleanIn=='\n'){	//no input    
-      //     begLineDisplay();
-      exit(0);
+    if(strlen(cleanIn)>1){	//no input    
+      readCommand(cleanIn);
     }
     else{	//they typed something; deal with it
-      readCommand(cleanIn);
+      flag=false;
       //
       //     begLineDisplay();
     }
+    free(in);
   } 
   
 }
