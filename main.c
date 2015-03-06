@@ -177,10 +177,8 @@ void ls(){ //will eventually need this to potentially return a char*
   DIR *dir; 
   struct dirent *dirFiles;
   dir = opendir(cwd);
-  if (dir)
-  {
-    while ((dirFiles = readdir(dir)) != NULL) //reads files with in that directory
-    {
+  if (dir){
+    while ((dirFiles = readdir(dir)) != NULL){ //reads files with in that directory
       printf("%s\n", dirFiles->d_name);
     }
     closedir(dir);
@@ -249,108 +247,168 @@ void readCommand(char* in){ //parses input
   char* isSet = strstr(command, "set");
   
   
-    if(isPipe!=NULL){
-      char* part = strtok(inputCopy, "|");
-      char* first_cmd = part;
-      printf("%s first", first_cmd);
-      part = strtok(NULL, "\n");
-      char* second_cmd = part;
-      printf("%s second", second_cmd);
-      int spipe[2];
-      int status;
-      pipe(spipe);
-      pid_t pid, pid2;
-      pid = fork();
-      if (pid == 0) {
-		dup2(spipe[1], STDOUT_FILENO);
-		readCommand(trimWhitespace(first_cmd));
-		exit(0);
-      } else {
-		dup2(spipe[0], STDIN_FILENO);
-		close(spipe[0]);
-		close(spipe[1]);
-		waitpid(pid, &status, 0);
-		readCommand(trimWhitespace(second_cmd));
-	
-      }
-    }
-  
-    else if(isBackground!=NULL){
-      //run in background 
-      //take qargv[0] as the command
-    }
-    else if(isRead!=NULL){
-		  //read 
-		int status;
-		char * curInput = strdup(inputCopy);
-		char * inString = strtok(inputCopy," \n");
-		int inStringLen = strlen(inString);
-		char * s; char * d;
-	  	for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
-		strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
-		pid_t pid_1;
-		pid_1 = fork();
-		if (pid_1 == 0) {
-			char *e = strchr(curInput, '<');
-			int index = (int)(e - curInput);
-			char *inputStream = strdup(curInput);
-			strncpy(inputStream, &curInput[index+2], strlen(curInput));
-			int in = open(inputStream, O_RDONLY);
-			dup2(in, 0);
-			close(in);
-			curInput[0] = '\0';
-		}
-	}
-    else if(isWrite!=NULL){
-      //write 
-		char * curInput = strdup(inputCopy);
-		char * inString = strtok(inputCopy," \n");
-		int inStringLen = strlen(inString);
-		char * s; char * d;
-	  	for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
-		strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
-		pid_t pid_1;
-		pid_1 = fork();
-		if (pid_1 == 0) {
-			// IO redirection
-			char *e = strchr(curInput, '>');
-			int index = (int)(e - curInput);
-			char *output = strdup(inputCopy);
-			strncpy(output, &curInput[index+2], strlen(curInput));
-			int fdout = open(output, O_CREAT | O_WRONLY | O_TRUNC, 0666);
-			dup2(fdout, STDOUT_FILENO);
-          	readCommand(command);
-          	close(fdout);
-          	exit(0);
-		}
-
-    }
-
-	else if(isCd !=NULL){
-      //cd
-      cd(qargv[0]);
-    }
-
-    else if(isLs !=NULL){
-      //ls
-      ls();
-    }
-    else if((isExit!=NULL)||(isQuit!=NULL)){
-      //quit
-      exit(0);
-    }
-    else if(isJobs!=NULL){
-      //display jobs
-      displayJobs(); 
-    }
-    else if(isSet!=NULL){
-      // set(qargv[0]);
-      set(qargv[0]);
-    }
-    else{
-      printf("run executable"); 
+  if(isPipe!=NULL){
+    char * s; char * d;
+    int pipefd_1[2];
+    char * curInput = strdup(inputCopy);
+    int i = 0;
+    char * inString;
+    inString = strtok(inputCopy," \n=");
+    char * cur_command = strdup(inString);
+    char * background = strchr(curInput, '&');
+    char * to_pipe = strchr(curInput, '|');
+    int setter = strcmp("set", inString);
+    
+    int inStringLen = background - curInput;
+    int pipeSpot = to_pipe - curInput;
+    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); // remove newline
+    
+    if (setter == 0) {
+      inString = strtok(NULL," \n=");
+      char * assign_value = strtok(NULL, "\n =");
+      for (s=d=assign_value;*d=*s;d+=(*s++!='\'')); // remove quotes  		
+      setenv(inString, assign_value, 1);
     }
     
+    if (to_pipe != NULL) {
+      if (pipe(pipefd_1) == -1) {
+	perror("pipe");
+	exit(1);	
+      }
+      //get first part (prior to pipe)
+      char * first_half = strdup(curInput);
+      char * second_half = strdup(curInput);
+      printf("%d\n", to_pipe);
+      strncpy(first_half, &curInput[0], pipeSpot);
+      first_half[pipeSpot] = '\0';
+      strncpy(second_half, &curInput[pipeSpot+2], strlen(curInput));
+      pid_t pid_1;
+      pid_t pid_2;
+      pid_1 = fork();
+      if (pid_1 == 0) {
+	dup2(pipefd_1[1], STDOUT_FILENO);
+	readCommand(trimWhitespace(first_half));
+	exit(0);
+      } 
+      
+      pid_2 = fork();
+      if (pid_2 == 0) {
+	dup2(pipefd_1[0], STDIN_FILENO);
+	readCommand(trimWhitespace(second_half));
+	exit(0);
+      } 
+      
+    } 
+    
+    
+    
+    
+    
+    
+    //       char* part = strtok(inputCopy, "|");
+    //       char* first_cmd = part;
+    //       printf("%s first", first_cmd);
+    //       part = strtok(NULL, "\n");
+    //       char* second_cmd = part;
+    //       printf("%s second", second_cmd);
+    //       int spipe[2];
+    //       int status;
+    //       pipe(spipe);
+    //       pid_t pid, pid2;
+    //       pid = fork();
+    //       if (pid == 0) {
+    // 	dup2(spipe[1], STDOUT_FILENO);
+    // 	readCommand(trimWhitespace(first_cmd));
+    // 	exit(0);
+    //       } //else {
+    //       pid2 = fork();
+    // 	if(pid2 == 0){
+    // 	dup2(spipe[0], STDIN_FILENO);
+    // //	close(spipe[0]);
+    // //	close(spipe[1]);
+    // //	waitpid(pid, &status, 0);
+    // 	readCommand(trimWhitespace(second_cmd));
+    // 	//exit(0);
+    // 	
+    //       }
+  }
+  
+  else if(isBackground!=NULL){
+    //run in background 
+    //take qargv[0] as the command
+  }
+  else if(isRead!=NULL){
+    //read 
+    int status;
+    char * curInput = strdup(inputCopy);
+    char * inString = strtok(inputCopy," \n");
+    int inStringLen = strlen(inString);
+    char * s; char * d;
+    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
+    strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
+    pid_t pid_1;
+    pid_1 = fork();
+    if (pid_1 == 0) {
+      char *e = strchr(curInput, '<');
+      int index = (int)(e - curInput);
+      char *inputStream = strdup(curInput);
+      strncpy(inputStream, &curInput[index+2], strlen(curInput));
+      int in = open(inputStream, O_RDONLY);
+      dup2(in, 0);
+      close(in);
+      curInput[0] = '\0';
+    }
+  }
+  else if(isWrite!=NULL){
+    //write 
+    char * curInput = strdup(inputCopy);
+    char * inString = strtok(inputCopy," \n");
+    int inStringLen = strlen(inString);
+    char * s; char * d;
+    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
+    strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
+    pid_t pid_1;
+    pid_1 = fork();
+    if (pid_1 == 0) {
+      // IO redirection
+      char *e = strchr(curInput, '>');
+      int index = (int)(e - curInput);
+      char *output = strdup(inputCopy);
+      strncpy(output, &curInput[index+2], strlen(curInput));
+      int fdout = open(output, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+      dup2(fdout, STDOUT_FILENO);
+      readCommand(command);
+      close(fdout);
+      exit(0);
+    }
+    
+  }
+  
+  else if(isCd !=NULL){
+    //cd
+    cd(qargv[0]);
+  }
+  
+  else if(isLs !=NULL){
+    //ls
+    ls();
+  }
+  else if((isExit!=NULL)||(isQuit!=NULL)){
+    //quit
+    exit(0);
+  }
+  else if(isJobs!=NULL){
+    //display jobs
+    displayJobs(); 
+  }
+  else if(isSet!=NULL){
+    // set(qargv[0]);
+    set(qargv[0]);
+  }
+  else{
+    printf("run executable"); 
+  }
+  
   
 }
 int main(int argc, char **argv, char **envp)
@@ -364,16 +422,12 @@ int main(int argc, char **argv, char **envp)
   
   //initialize shell
   initializeShell();
-
+  
   int flag= true;
   while(flag){
-    char* prompt = getcwd(NULL, 1024);
-
-  
-  while(1){
-	char* prompt[128];
-	snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
-
+    char* prompt[128];
+    snprintf(prompt,  sizeof(prompt), "[Quash %s ]$ ", getcwd(NULL,1024));
+    
     
     char* in = readline(prompt);
     printf("%s\n", in);
@@ -391,6 +445,8 @@ int main(int argc, char **argv, char **envp)
   } 
   
 }
+
+
 //Pipes -- used if there are two jobs you want to process
 //these two jobs are separated by '|'
 // void pipeCommands(char* job1, char* job2){
