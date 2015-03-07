@@ -234,35 +234,6 @@ void execute(char** input){
   
 }
 
-Job* insertjob(pid_t pid, pid_t pgid, char* name, char* descriptor){
-  //  usleep(10000);
-  Job *newjob = malloc(sizeof(Job));
-  
-  newjob->name = (char*) malloc(sizeof(name));
-  newjob->name = strcpy(newjob->name, name);
-  newjob->pid = pid;// //Displays jobs when user calls jobs function
-  newjob->pgid = pgid;
-  newjob->status = "BG";
-  newjob->descriptor = (char*) malloc(sizeof(descriptor));
-  newjob->descriptor = strcpy(newjob->descriptor, descriptor);
-  newjob->next = NULL;
-  
-  if (jobs == NULL) {
-    activeJobcount++;
-    newjob->id = activeJobcount;
-    return newjob;
-  } else {
-    auxNode = jobs;
-    while (auxNode->next != NULL) {
-      auxNode = auxNode->next;
-    }
-    newjob->id = auxNode->id + 1;
-    auxNode->next = newjob;
-    activeJobcount++;
-    return jobs;
-  }
-}
-
 int findJob(int searchValue){
   printf("inside find job function ");
   for( int k = 0; k<100; k++){
