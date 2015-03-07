@@ -12,17 +12,9 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
-
-#include <string.h>
 #include <wait.h>
-
-
 #include <readline/readline.h>
 #include <readline/history.h>
-
-#include <readline/readline.h>
-#include <readline/history.h>
-#include <sys/stat.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
@@ -138,33 +130,6 @@ void initializeShell(){
   fflush(stdout);
 }
 
-
-//will also need to perform a special case of parsing for '|', '<', '>' case
-//and for '&'
-//should probably be storing this information inJob* 
-//a struct job and then adding this job to the global struct Job jobs[]
-
-
-
-//may want this to take in a job,
-//and then read use the information from this job to run
-//maybe method looks like this: performCommand(Job *job);
-
-
-//process special commands
-// void doJob(char *command[], char *file){
-//   char* fname = NULL;
-//   pid_t pid;
-//   //foreground/background stuff
-//   char mode = symbolCheck("&");
-//   pid = fork();
-//   
-//   Job* 
-// }
-
-
-
-
 //Change Directories (cd)
 void cd(const char *dir){ //--does this account for PATH and HOME if typed in? 
   //Yes -- should account for those and '..'
@@ -214,7 +179,6 @@ void displayJobs(){
 
 
 void execute(char** input){
-  printf("input: %s\n", input[0]);
   pid_t pid_1;
   int status;
   pid_1 = fork();
@@ -247,6 +211,50 @@ int findJob(int searchValue){
   }
    printf("job not found");
    return -1;
+}
+
+readFile(char* inputCopy){
+    int status;
+    char* curInput = strdup(inputCopy);
+    char* inString = strtok(inputCopy," \n");
+    int inStringLen = strlen(inString);
+    char* s; char* d;
+    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
+    strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
+    pid_t pid_1;
+    pid_1 = fork();
+    if (pid_1 == 0) {
+      char *e = strchr(curInput, '<');
+      int index = (int)(e - curInput);
+      char *inputStream = strdup(curInput);
+      strncpy(inputStream, &curInput[index+2], strlen(curInput));
+      int in = open(inputStream, O_RDONLY);
+      dup2(in, 0);
+      close(in);
+      curInput[0] = '\0';
+    } 
+}
+
+writeFile(char* inputCopy, char* command){
+    char* curInput = strdup(inputCopy);
+    char* inString = strtok(inputCopy," \n");
+    int inStringLen = strlen(inString);
+    char* s; char* d;
+    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
+    strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
+    pid_t pid_1;
+    pid_1 = fork();
+    if (pid_1 == 0) {
+      char *e = strchr(curInput, '>');
+      int index = (int)(e - curInput);
+      char *output = strdup(inputCopy);
+      strncpy(output, &curInput[index+2], strlen(curInput));
+      int fdout = open(output, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+      dup2(fdout, STDOUT_FILENO);
+      readCommand(command);
+      close(fdout);
+      exit(0);
+    } 
 }
 
 
@@ -366,48 +374,12 @@ void readCommand(char* in){ //parses input
   }
   else if(isRead!=NULL){
     //read 
-    int status;
-    char * curInput = strdup(inputCopy);
-    char * inString = strtok(inputCopy," \n");
-    int inStringLen = strlen(inString);
-    char * s; char * d;
-    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
-    strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
-    pid_t pid_1;
-    pid_1 = fork();
-    if (pid_1 == 0) {
-      char *e = strchr(curInput, '<');
-      int index = (int)(e - curInput);
-      char *inputStream = strdup(curInput);
-      strncpy(inputStream, &curInput[index+2], strlen(curInput));
-      int in = open(inputStream, O_RDONLY);
-      dup2(in, 0);
-      close(in);
-      curInput[0] = '\0';
-    }
+    readFile(inputCopy);
   }
+  
   else if(isWrite!=NULL){
     //write 
-    char * curInput = strdup(inputCopy);
-    char * inString = strtok(inputCopy," \n");
-    int inStringLen = strlen(inString);
-    char * s; char * d;
-    for (s=d=curInput;*d=*s;d+=(*s++!='\n')); //remove newline
-    strncpy(curInput, &curInput[inStringLen + 1], strlen(curInput));
-    pid_t pid_1;
-    pid_1 = fork();
-    if (pid_1 == 0) {
-      char *e = strchr(curInput, '>');
-      int index = (int)(e - curInput);
-      char *output = strdup(inputCopy);
-      strncpy(output, &curInput[index+2], strlen(curInput));
-      int fdout = open(output, O_CREAT | O_WRONLY | O_TRUNC, 0666);
-      dup2(fdout, STDOUT_FILENO);
-      readCommand(command);
-      close(fdout);
-      exit(0);
-    }
-    
+    writeFile(inputCopy, command);    
   }
   
   else if(isCd !=NULL){
@@ -423,6 +395,7 @@ void readCommand(char* in){ //parses input
     //display jobs
     displayJobs(); 
   }
+  
   else if(isSet!=NULL){
     // set(qargv[0]);
     set(qargv[0]);
@@ -464,23 +437,7 @@ int main(int argc, char **argv, char **envp)
   //initialize shell
   //initializeShell();
   bool argcflag=true;
-  //handle if quash is run with command file
-  
-  //     if(argc>1 && argcflag){
-  //      //then it's a < characters 
-  //      // need to make arguments into one string
-  //       printf("args: %s ", argv[0]);
-  //       char* string;
-  //       int i=1;
-  //       strcpy (string, argv[0]);
-  //       while(argv[i]!=NULL){
-  //         strcat(string, argv[i]);
-  //         i++;
-  //       }
-  //       char* cleanString = trimWhitespace(string);
-  //       readCommand(cleanString);
-  //       argcflag = false;
-  //     }
+
   
   
   int flag= true;
