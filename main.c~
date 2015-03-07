@@ -60,6 +60,7 @@ typedef struct Job{
   pid_t pgid;
   char * command; //an actual command cd, ls, set, etc...
   char** arguments; //an array of arguments that go with that command
+  struct Job *next;
 } Job;
 
 struct Job jobs[100]; //should it be Job job[];
