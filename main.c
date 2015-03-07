@@ -168,11 +168,15 @@ void set(char* pathSet){ // -- unsure if this is setting the enviroment variable
 
 //Displays jobs when user calls jobs function
 void displayJobs(){
+  int jobPrint = 0;
   for (int i = 0; i < jobCount; i++){
+	if(jobs[i].alive==1){
       printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
+	  jobPrint++;
+	}
   } 
-  if(jobCount==0){
-    printf("no jobs created"); 
+  if(jobCount==0 || jobPrint==0){
+    printf("no jobs alive"); 
   }
   
 }
@@ -365,7 +369,7 @@ void readCommand(char* in){ //parses input
       exit(0);
     }
     else {
-      struct Job newJob = {.pid = pid, .id = jobCount, .command = inputCopy};
+      struct Job newJob = {.pid = pid, .id = jobCount, .command = inputCopy, .alive=1};
       jobs[jobCount] = newJob;
       jobCount++;
       while(waitid(pid, NULL, WEXITED | WNOHANG) > 0) {}
@@ -402,11 +406,13 @@ void readCommand(char* in){ //parses input
   }
   else if(isKill!=NULL){
     //find job by pid
-    int jobIndex = atoi(qargv[0]);
+    int signum = atoi(qargv[0]);
+	int jobIndex = atoi(qargv[1]);
     if(jobIndex<jobCount){
       printf("job exists\n");
       printf("killing job with pid = %d\n", jobs[jobIndex].pid);
-      kill(jobs[jobIndex].pid, SIGTERM);
+	  jobs[jobIndex].alive=0;
+      kill(jobs[jobIndex].pid, signum);
     }
     else{ //error handling
       printf("job with that pid was not found; try again");
