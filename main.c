@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include <string.h>
+#include <wait.h>
 
 
 #include <readline/readline.h>
@@ -63,11 +64,11 @@ typedef struct Job{
   char** arguments; //an array of arguments that go with that command
   struct Job *next;
 } Job;
-Job* auxNode;
+struct Job* auxNode;
 
-Job* jobs; //should it be Job job[];
-int* jobCount =0;
-int* activeJobcount = 0;
+struct Job jobs[100]; //should it be Job job[];
+int jobCount =0;
+int activeJobcount = 0;
 
 
 char* trimWhitespace(char *str){
@@ -196,21 +197,19 @@ void set(char* pathSet){ // -- unsure if this is setting the enviroment variable
   if (setenv(pathType, value, 1) < 0){
     printf("<%s> cannot overwrite environment variables.\n", strerror(errno));
   }
-
+  
 }
 
 
 //Displays jobs when user calls jobs function
 void displayJobs(){
   for (int i = 0; i < jobCount; i++){
-      if (jobs[i].alive){
-	printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
-      }
+      printf("[%d]\t%d\t%s\n",jobs[i].id,jobs[i].pid,jobs[i].command);
   } 
   if(jobCount==0){
-   printf("no jobs created"); 
+    printf("no jobs created"); 
   }
-
+  
 }
 
 
@@ -235,78 +234,23 @@ void execute(char** input){
   
 }
 
-Job* insertjob(pid_t pid, pid_t pgid, char* name, char* descriptor){
-      //  usleep(10000);
-        Job *newjob = malloc(sizeof(Job));
-
-        newjob->name = (char*) malloc(sizeof(name));
-        newjob->name = strcpy(newjob->name, name);
-        newjob->pid = pid;// //Displays jobs when user calls jobs function
-        newjob->pgid = pgid;
-        newjob->status = "BG";
-        newjob->descriptor = (char*) malloc(sizeof(descriptor));
-        newjob->descriptor = strcpy(newjob->descriptor, descriptor);
-        newjob->next = NULL;
-
-        if (jobs == NULL) {
-                activeJobcount++;
-                newjob->id = activeJobcount;
-                return newjob;
-        } else {
-                auxNode = jobs;
-                while (auxNode->next != NULL) {
-                        auxNode = auxNode->next;
-                }
-                newjob->id = auxNode->id + 1;
-                auxNode->next = newjob;
-                activeJobcount++;
-                return jobs;
-        }
-}
-
-void putjobforeground(Job* job, int continuejob)
-{
-        job->status = "FG";
-        tcsetpgrp(shellTerminal, job->pgid);
-        if (continuejob) {
-                if (kill(-job->pgid, SIGCONT) < 0)
-                        perror("kill (SIGCONT)");
-        }
-
-        //waitjob(job);
-        tcsetpgrp(shellTerminal, shellPGID);
-}
-
-void putjobbackground(Job* job, int continuejob)
-{
-        if (job == NULL)
-                return;
-
-        if (continuejob && job->status != "WAITING")
-                job->status = "WAITING";
-        if (continuejob)
-                if (kill(-job->pgid, SIGCONT) < 0)
-                        perror("kill (SIGCONT)");
-
-        tcsetpgrp(shellTerminal, shellPGID);
-}
-
-Job* findJob(int searchValue){
-     //   usleep(10000);
-        Job* job = jobs;
-
-	while (job != NULL) {
-	  if (job->pid == searchValue)
-	    return job;
-	  else
-	    job = job->next;
-	}
-        return NULL;
+int findJob(int searchValue){
+  printf("inside find job function ");
+  for( int k = 0; k<100; k++){
+    if(jobs[k].pid!=NULL){
+      printf("job isn't null");
+      if(strcmp(jobs[k].pid, searchValue)==0){
+      printf("found job");
+      return k;
+      }
+    }
+  }
+   printf("job not found");
+   return -1;
 }
 
 
 void readCommand(char* in){ //parses input
-  
   
   char* inputCopy = strdup(in);
   char* inputTotal = strdup(in);
@@ -358,10 +302,10 @@ void readCommand(char* in){ //parses input
     int spipe[2];
     char* part = strtok(inputCopy, "|");
     char* first_cmd = part;
-   // printf("%s first", first_cmd);
+    // printf("%s first", first_cmd);
     part = strtok(NULL, "\n");
     char* second_cmd = part;
-   // printf("%s second", second_cmd);
+    // printf("%s second", second_cmd);
     int status;
     pipe(spipe);
     pid_t pid1, pid2;
@@ -370,10 +314,10 @@ void readCommand(char* in){ //parses input
       dup2(spipe[1], STDOUT_FILENO);
       //printf("I'm running first pipe");
       close(spipe[0]);
-  //    pipeflag=true;
+      //    pipeflag=true;
       readCommand(trimWhitespace(first_cmd));
-     // close(spipe[1]);
-     // printf("I finished reading first command");
+      // close(spipe[1]);
+      // printf("I finished reading first command");
       exit(0);
     } 
     pid2 = fork();
@@ -381,60 +325,45 @@ void readCommand(char* in){ //parses input
       dup2(spipe[0], STDIN_FILENO);
       close(spipe[1]);
       //printf("before wait");
-     //s waitpid(pid1, &status, 0);
-     // printf("after wait");
-  //    pipeflag=true;
+      //s waitpid(pid1, &status, 0);
+      // printf("after wait");
+      //    pipeflag=true;
       readCommand(trimWhitespace(second_cmd));
       
       
     }
-  //  pipeflag = true;
+    //  pipeflag = true;
     close(spipe[0]);
     close(spipe[1]);
   }
   
-  else if(isBackground!=NULL){
-    //run in background 
-    //take qargv[0] as the command
-    char* filename = NULL;
+  else if(isBackground!=NULL){//run in background 
+    char * s; char * d;
+    for (s=d=inputCopy;*d=*s;d+=(*s++!='&'));
+    int status;
     pid_t pid;
-
+    pid_t sid; 
     pid = fork();
-    char* s;
-    setpgid(pid, pid);
-    jobs = insertjob(pid, pid, *(command), "STANDARD");
-    printf("inserted job");
-    Job *job = findJob(pid);
-    putjobbackground(job, 0);
-    printf("job in background");
-    
-    
-//     pid_t pidBG, sid;
-//     pidBG = fork();
-//     int pipeBG[2];
-//     if(pidBG == 0){
-//       sid = setsid();
-//       if(sid < 0){
-// 	printf("failed to create process group");
-// 	exit(0);
-//       }
-//       
-//       close(pipeBG[0]);
-//       close(pipeBG[1]);
-//       
-//       close(STDIN_FILENO);
-//       
-//       char* bgC = strtok(inputCopy,"&"); 
-//       bgC = strtok(NULL, "\n");
-//       printf("command: %s", bgC);
-//       readCommand(bgC);
-//       kill(getpid(), -9);
-//       exit(0);
-//     }
-    
- }
- 
- 
+    if (pid == 0) {
+      sid = setsid();
+      if (sid < 0 ) {
+	fprintf(stderr, "Could not create the new process\n");
+	exit(0);
+      }
+      printf("New process with pid %d running out of %d processes\n", getpid(), jobCount + 1);
+      readCommand(inputCopy);
+      printf("The process with pid %d has finished\n", getpid());
+      kill(getpid(), -9);
+      exit(0);
+    }
+    else {
+      struct Job newJob = {.pid = pid, .id = jobCount, .command = inputCopy};
+      jobs[jobCount] = newJob;
+      jobCount++;
+      while(waitid(pid, NULL, WEXITED | WNOHANG) > 0) {}
+      
+    }
+  }
   else if(isRead!=NULL){
     //read 
     int status;
@@ -499,21 +428,22 @@ void readCommand(char* in){ //parses input
     set(qargv[0]);
   }
   else if(isKill!=NULL){
-   //find job by pid
-    Job* job = findJob(qargv[0]);
-    if(job!=NULL){ //if job exists, kill it
-      printf("killing job with pid = %d\n", job->pid);
-      kill(job->pid, SIGKILL);
+    //find job by pid
+    int jobIndex = atoi(qargv[0]);
+    if(jobIndex<jobCount){
+      printf("job exists\n");
+      printf("killing job with pid = %d\n", jobs[jobIndex].pid);
+      kill(jobs[jobIndex].pid, SIGTERM);
     }
     else{ //error handling
       printf("job with that pid was not found; try again");
     }
-   
+    
   }
   else{
     char* pathcheck = strstr(command, "$PATH");
     if(pathcheck!=NULL){
-     printf("PATH : %s\n", getenv("PATH"));
+      printf("PATH : %s\n", getenv("PATH"));
     }
     else{
       execute(totalArgs);
@@ -532,26 +462,26 @@ int main(int argc, char **argv, char **envp)
   printf("##############################################\n");
   
   //initialize shell
-    //initializeShell();
+  //initializeShell();
   bool argcflag=true;
   //handle if quash is run with command file
   
-//     if(argc>1 && argcflag){
-//      //then it's a < characters 
-//      // need to make arguments into one string
-//       printf("args: %s ", argv[0]);
-//       char* string;
-//       int i=1;
-//       strcpy (string, argv[0]);
-//       while(argv[i]!=NULL){
-//         strcat(string, argv[i]);
-//         i++;
-//       }
-//       char* cleanString = trimWhitespace(string);
-//       readCommand(cleanString);
-//       argcflag = false;
-//     }
-    
+  //     if(argc>1 && argcflag){
+  //      //then it's a < characters 
+  //      // need to make arguments into one string
+  //       printf("args: %s ", argv[0]);
+  //       char* string;
+  //       int i=1;
+  //       strcpy (string, argv[0]);
+  //       while(argv[i]!=NULL){
+  //         strcat(string, argv[i]);
+  //         i++;
+  //       }
+  //       char* cleanString = trimWhitespace(string);
+  //       readCommand(cleanString);
+  //       argcflag = false;
+  //     }
+  
   
   int flag= true;
   char* in, prompt[128];
@@ -560,50 +490,15 @@ int main(int argc, char **argv, char **envp)
     snprintf(prompt,  sizeof(prompt), "\n[Quash %s ]$ ", getcwd(NULL,1024));
     in = readline(prompt);
     char* cleanIn = trimWhitespace(in);
-    if(strlen(cleanIn)>1 && !pipeflag){
-      readCommand(cleanIn);
-      in = trimWhitespace(in);
-    }
-    else{
+    if (strcmp("exit", in) != 0 && strcmp("quit", in) != 0) {
+      if(strlen(cleanIn)>1 && !pipeflag){
+	readCommand(cleanIn);
+	in = trimWhitespace(in);
+      }
+    }else{
       flag=false;
     }
     free(in);	 
-  
+    
   }
 }
-
-
-//Pipes -- used if there are two jobs you want to process
-//these two jobs are separated by '|'
-// void pipeCommands(char* job1, char* job2){
-//   
-//   int status;
-//   pid_t pid_1;
-//   int fd1[2];
-//   
-//   pipe(fd1);
-//   
-//   pid_1 = fork();
-//   if (pid_1 == 0) {
-//     dup2(fd1[1],STDOUT_FILENO);
-//     close(fd1[0]);
-//     readCommand(trimWhitespace(job1));
-//     //would want to execute the job, but rather see what
-//     //type of command it is then run what it is
-//     //rather than going straight to an executable
-//     
-//     //I believe I should be calling the performCommand method
-//     //and passing in the job given
-//     
-//     
-//     exit(0);
-//   }
-//   else {
-//     dup2(fd1[0], STDIN_FILENO);
-//     close(fd1[1]);
-//     waitpid(pid_1, &status, 0);
-//     readCommand(trimWhitespace(job2));
-//     exit(0);
-//   }
-//   
-// }
